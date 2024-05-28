@@ -1,10 +1,19 @@
 	Validate Objects 
-Source DB 	As APPS
-	@ /backup_xtts/EBS_SCRIPTS/EBS_SRC.sql
-	expdp  \"/ as sysdba\" directory=metadir logfile=dp_exp_t1.log dumpfile=dp_t1.dmp tables=apps.ebs_source_obj
+Source DB As SYSDBA
+	
+ Create table source_obj as
+select * from dba_objects
+where  owner not in ('SYS','SYSTEM','DBSNMP','SYSMAN','OUTLN','MDSYS','ORDSYS','EXFSYS','DMSYS','WMSYS','CTXSYS','ANONYMOUS','XDB','ORDPLUGINS','OLAPSYS','PUBLIC');
+
+	expdp  \"/ as sysdba\" directory=metadir logfile=dp_exp_t1.log dumpfile=dp_t1.dmp tables=source_obj
 Target DB 	
-	@ /backup_xtts/EBS_SCRIPTS/EBS_TRG.sql
+
+Create table target_obj as
+select * from dba_objects
+where  owner not in ('SYS','SYSTEM','DBSNMP','SYSMAN','OUTLN','MDSYS','ORDSYS','EXFSYS','DMSYS','WMSYS','CTXSYS','ANONYMOUS','XDB','ORDPLUGINS','OLAPSYS','PUBLIC');
+
+
 	impdp \"/ as sysdba\" directory=metadir dumpfile=dp_t1.dmp  logfile=dp_imp_t1.log
 Target DB 	
 	
-	select * from ebs_source_obj where (object_name) NOT IN ( select object_name from ebs_target_obj) and object_name not like 'SYS_%';
+	select * from source_obj where (object_name) NOT IN ( select object_name from target_obj) and object_name not like 'SYS_%';
