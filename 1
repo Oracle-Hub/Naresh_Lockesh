@@ -1,0 +1,10 @@
+	Validate Objects 
+Source DB 	As APPS
+	@ /backup_xtts/EBS_SCRIPTS/EBS_SRC.sql
+	expdp  \"/ as sysdba\" directory=metadir logfile=dp_exp_t1.log dumpfile=dp_t1.dmp tables=apps.ebs_source_obj
+Target DB 	
+	@ /backup_xtts/EBS_SCRIPTS/EBS_TRG.sql
+	impdp \"/ as sysdba\" directory=metadir dumpfile=dp_t1.dmp  logfile=dp_imp_t1.log
+Target DB 	
+	
+	select * from ebs_source_obj where (object_name) NOT IN ( select object_name from ebs_target_obj) and object_name not like 'SYS_%';
