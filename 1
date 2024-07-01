@@ -1,4 +1,6 @@
-	Validate Objects 
+unset -f $(env | grep -oP "^BASH_FUNC_\K([^%]*)")
+
+Validate Objects 
 Source DB As SYSDBA
 	
  Create table source_obj as
