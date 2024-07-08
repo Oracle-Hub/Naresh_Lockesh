@@ -1,3 +1,11 @@
+cd $AU_TOP/resource
+for i in `ls XX*.pll`
+do echo Compiling Form $i
+frmcmp_batch.sh userid=apps/SdYsApTso3 batch=no module=$i module_type=LIBRARY compile_all=yes window_state=minimize
+done
+
+
+
 export FORMS_PATH=$FORMS_PATH:$AU_TOP/forms/US
 frmcmp_batch.sh module=$AU_TOP/forms/US/ASTRCALL.fmb userid=apps/hkv#Hl#27#S module_type=FORM output_file=$AST_TOP/forms/US/ASTRCALL.fmx compile_all=special
 
