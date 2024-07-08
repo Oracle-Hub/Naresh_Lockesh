@@ -1,3 +1,25 @@
+export FORMS_PATH=$FORMS_PATH:$AU_TOP/forms/US
+frmcmp_batch.sh module=$AU_TOP/forms/US/ASTRCALL.fmb userid=apps/hkv#Hl#27#S module_type=FORM output_file=$AST_TOP/forms/US/ASTRCALL.fmx compile_all=special
+
+
+cd $AU_TOP/forms/US/
+for i in `ls XX*.fmb`
+do echo Compiling Form $i
+frmcmp_batch.sh userid=apps/APSTSO1PASS batch=no module=$i module_type=FORM compile_all=yes window_state=minimize
+done
+
+cd $AU_TOP/forms/US/
+for i in `ls XX*.fmb`
+do echo Compiling Form $i
+frmcmp_batch.sh userid=apps/SdYsApTso3 batch=no module=$i module_type=FORM output_file=$XXIRIS_TOP/forms/US/$i.fmx compile_all=yes window_state=minimize
+Done
+
+
+j=”${i//.fmb}”
+cd $AU_TOP/forms/US
+frmcmp_batch userid=apps/XXXX module=$i output_file=$AR_TOP/forms/US/$j.fmx module_type=form batch=no compile_all=special >>$LOGFILE
+
+
 unset -f $(env | grep -oP "^BASH_FUNC_\K([^%]*)")
 
 Validate Objects 
