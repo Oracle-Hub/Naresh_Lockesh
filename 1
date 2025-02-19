@@ -1,3 +1,18 @@
+
+set pagesize 0
+set long 100000
+select dbms_metadata.get_ddl( 'USER', 'UHG_001253075' ) from dual
+UNION ALL
+select dbms_metadata.get_granted_ddl( 'SYSTEM_GRANT', 'UHG_001253075' ) from dual
+UNION ALL
+select dbms_metadata.get_granted_ddl( 'OBJECT_GRANT', 'UHG_001253075' ) from dual
+UNION ALL
+select dbms_metadata.get_granted_ddl( 'ROLE_GRANT', 'UHG_001253075' ) from dual;
+
+
+
+
+
 cd $AU_TOP/resource
 for i in `ls XX*.pll`
 do echo Compiling Form $i
