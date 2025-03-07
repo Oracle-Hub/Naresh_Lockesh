@@ -10,6 +10,9 @@ UNION ALL
 select dbms_metadata.get_granted_ddl( 'ROLE_GRANT', 'UHG_001253075' ) from dual;
 
 
+cd /migration_shared/afststapp/ebs-consolidate/forms/10.1.2.3.0/32922089 && opatch apply -silent -ocmrf /migration_shared/afststapp/ebs-consolidate/ocm.rsp
+cd /migration_shared/afststapp/ebs-consolidate/forms/10.1.2.3.0/25342269 && opatch apply -silent -ocmrf /migration_shared/afststapp/ebs-consolidate/ocm.rsp
+cd /migration_shared/afststapp/ebs-consolidate/forms/10.1.2.3.0/27491934 && opatch apply -silent -ocmrf /migration_shared/afststapp/ebs-consolidate/ocm.rsp
 
 
 
