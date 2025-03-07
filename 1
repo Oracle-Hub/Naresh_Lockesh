@@ -9,6 +9,7 @@ select dbms_metadata.get_granted_ddl( 'OBJECT_GRANT', 'UHG_001253075' ) from dua
 UNION ALL
 select dbms_metadata.get_granted_ddl( 'ROLE_GRANT', 'UHG_001253075' ) from dual;
 
+unset -f $(env | grep -oP "^BASH_FUNC_\K([^%]*)")
 
 cd /migration_shared/afststapp/ebs-consolidate/forms/10.1.2.3.0/32922089 && opatch apply -silent -ocmrf /migration_shared/afststapp/ebs-consolidate/ocm.rsp
 cd /migration_shared/afststapp/ebs-consolidate/forms/10.1.2.3.0/25342269 && opatch apply -silent -ocmrf /migration_shared/afststapp/ebs-consolidate/ocm.rsp
