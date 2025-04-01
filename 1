@@ -1,3 +1,99 @@
+set echo off
+set line 200
+col CPU_TOTAL for a30
+with AASSTAT as (
+           select
+                 decode(n.wait_class,'User I/O','User I/O',
+                                     'Commit','Commit',
+                                     'Wait')                               CLASS,
+                 sum(round(m.time_waited/m.INTSIZE_CSEC,3))                AAS
+           from  v$waitclassmetric_history  m,
+                 v$system_wait_class n
+           where m.wait_class_id=n.wait_class_id
+             and n.wait_class != 'Idle' and END_TIME > sysdate - (300/(24*60*60))
+           group by  decode(n.wait_class,'User I/O','User I/O', 'Commit','Commit', 'Wait')
+          union
+             select 'CPU_ORA_CONSUMED'                                     CLASS,
+                    round(value/100,3)                                     AAS
+             from v$sysmetric_history
+             where metric_name='CPU Usage Per Sec'
+             and END_TIME > sysdate - (300/(24*60*60))
+               and group_id=2
+          union
+            select 'CPU_OS'                                                CLASS ,
+                    round((prcnt.busy*parameter.cpu_count)/100,3)          AAS
+            from
+              ( select value busy from v$sysmetric_history where metric_name='Host CPU Utilization (%)' and group_id=2 and END_TIME > sysdate - (300/(24*60*60)) ) prcnt,
+              ( select value cpu_count from v$parameter where name='cpu_count' )  parameter
+          union
+             select
+               'CPU_ORA_DEMAND'                                            CLASS,
+               nvl(round( sum(decode(session_state,'ON CPU',1,0))/60,2),0) AAS
+             from v$active_session_history ash
+             where SAMPLE_TIME > sysdate - (300/(24*60*60))
+)
+select
+       ( decode(sign(CPU_OS-CPU_ORA_CONSUMED), -1, 0, (CPU_OS - CPU_ORA_CONSUMED )) +
+       CPU_ORA_CONSUMED +
+        decode(sign(CPU_ORA_DEMAND-CPU_ORA_CONSUMED), -1, 0, (CPU_ORA_DEMAND - CPU_ORA_CONSUMED ))) || ' Should be less than '|| ( select value cpu_count from v$parameter where name='cpu_count' )  "CPU_TOTAL",
+       decode(sign(CPU_OS-CPU_ORA_CONSUMED), -1, 0, (CPU_OS - CPU_ORA_CONSUMED )) CPU_OS,
+       CPU_ORA_CONSUMED CPU_ORA,
+       decode(sign(CPU_ORA_DEMAND-CPU_ORA_CONSUMED), -1, 0, (CPU_ORA_DEMAND - CPU_ORA_CONSUMED )) CPU_ORA_WAIT,
+       COMMIT,
+       user_READ_IO,
+       WAIT
+from (
+select
+       sum(decode(CLASS,'CPU_ORA_CONSUMED',AAS,0)) CPU_ORA_CONSUMED,
+       sum(decode(CLASS,'CPU_ORA_DEMAND'  ,AAS,0)) CPU_ORA_DEMAND,
+       sum(decode(CLASS,'CPU_OS'          ,AAS,0)) CPU_OS,
+       sum(decode(CLASS,'Commit'          ,AAS,0)) COMMIT,
+       sum(decode(CLASS,'User I/O'        ,AAS,0)) user_READ_IO,
+       sum(decode(CLASS,'Wait'            ,AAS,0)) WAIT
+from AASSTAT)
+/
+
+col WAIT_CLASS for a15
+select n.wait_class, sum(round(m.time_waited/m.INTSIZE_CSEC,3)) "AvgActvSec in last 5 mins"
+from   v$waitclassmetric_history  m,
+       v$system_wait_class n
+where m.wait_class_id=n.wait_class_id
+and n.wait_class != 'Idle'
+and END_TIME > sysdate - (300/(24*60*60)) group by n.wait_class;
+
+
+Select a.event, a.total_waits, a.time_waited, a.average_wait
+From v$system_event a, v$event_name b, v$system_wait_class c
+Where a.event_id=b.event_id
+And b.wait_class#=c.wait_class#
+And c.wait_class = '&Enter_Wait_Class'
+order by average_wait desc;
+
+
+
+col Rank for a12
+SELECT *
+FROM (SELECT RANK () OVER
+(PARTITION BY "Snap Day" ORDER BY "Buffer Gets" + "Disk Reads" DESC) AS "Rank", i1.*
+FROM (SELECT TO_CHAR (hs.begin_interval_time, 'MM/DD/YY' ) "Snap Day",
+SUM (shs.executions_delta) "Execs",
+SUM (shs.buffer_gets_delta) "Buffer Gets",
+SUM (shs.disk_reads_delta) "Disk Reads",
+ROUND ( (SUM (shs.buffer_gets_delta)) / SUM (shs.executions_delta), 1 ) "Gets/Exec",
+ROUND ( (SUM (shs.cpu_time_delta) / 1000000) / SUM (shs.executions_delta), 1 ) "CPU/Exec(S)",
+ROUND ( (SUM (shs.iowait_delta) / 1000000) / SUM (shs.executions_delta), 1 ) "IO/Exec(S)",
+shs.sql_id "Sql id",
+REPLACE (CAST (DBMS_LOB.SUBSTR (sht.sql_text, 50) AS VARCHAR (50) ), CHR (10), '' ) "Sql"
+FROM dba_hist_sqlstat shs INNER JOIN dba_hist_sqltext sht
+ON (sht.sql_id = shs.sql_id)
+INNER JOIN dba_hist_snapshot hs
+ON (shs.snap_id = hs.snap_id)
+HAVING SUM (shs.executions_delta) > 0
+GROUP BY shs.sql_id, TO_CHAR (hs.begin_interval_time, 'MM/DD/YY'),
+CAST (DBMS_LOB.SUBSTR (sht.sql_text, 50) AS VARCHAR (50) )
+ORDER BY "Snap Day" DESC) i1
+ORDER BY "Snap Day" DESC)
+WHERE "Rank" <= 5 AND "Snap Day" = TO_CHAR (SYSDATE, 'MM/DD/YY');
 
 
 
