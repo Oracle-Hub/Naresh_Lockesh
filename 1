@@ -1,3 +1,28 @@
+To find where it's currently, because It run in the background, nobody knows where it's, so check from v$longops.
+---------------------------------------------------------------------------------------------------------------------------------------------------------
+
+SELECT SID, SERIAL#, OPNAME, TARGET, SOFAR, TOTALWORK, UNITS,
+TO_CHAR(START_TIME,'DD/MON/YYYY HH24:MI:SS') START_TIME,
+TO_CHAR(LAST_UPDATE_TIME,'DD/MON/YYYY HH24:MI:SS') LAST_UPDATE_TIME,
+TIME_REMAINING/60 AS "MTS REMANING", ELAPSED_SECONDS, MESSAGE, USERNAME
+FROM gV$SESSION_LONGOPS
+--WHERE TIME_REMAINING != 0
+--where sid=42034
+order by last_update_time desc;
+
+SELECT SID, SERIAL#,SOFAR blocks_processed, TOTALWORK total_work, 
+TOTALWORK-SOFAR Total_work_left,TO_CHAR(START_TIME,'DD/MON/YYYY HH24:MI:SS') START_TIME,
+round((ELAPSED_SECONDS/60),0) Elapsed_minutes,
+substr(message,1,100) Message, username, round(sofar/totalwork*100,2) || '%' "Completed", time_remaining/60 
+FROM gV$SESSION_LONGOPS where totalwork-sofar > 0
+--and username='APPS'
+and message like '%AUD%'
+order by start_time desc;
+
+
+
+
+
 set heading off feedback off lines 800 pages 5000 trimspool on trimout on
 prompt Creating AWR Report rxeprr1_awrrpt_1_11_12PM_6NOV19.html
 prompt
