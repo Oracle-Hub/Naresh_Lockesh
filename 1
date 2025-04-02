@@ -1,3 +1,13 @@
+set heading off feedback off lines 800 pages 5000 trimspool on trimout on
+prompt Creating AWR Report rxeprr1_awrrpt_1_11_12PM_6NOV19.html
+prompt
+set termout off
+spool AWRRPT_RXEPRR1_1800_1830_cst.html
+select output from table(dbms_workload_repository.awr_report_html(67995579,1,239409,239411,0));
+spool off
+
+
+
 SELECT blocking_sid, num_blocked
 FROM ( SELECT blocking_sid, SUM(num_blocked) num_blocked
 FROM ( SELECT l.id1, l.id2,
