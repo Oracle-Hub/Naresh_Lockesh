@@ -1,168 +1,345 @@
-set echo off
+SELECT blocking_sid, num_blocked
+FROM ( SELECT blocking_sid, SUM(num_blocked) num_blocked
+FROM ( SELECT l.id1, l.id2,
+MAX(DECODE(l.block, 1, i.instance_name||'-'||l.sid,
+2, i.instance_name||'-'||l.sid, 0 )) blocking_sid,
+SUM(DECODE(l.request, 0, 0, 1 )) num_blocked
+FROM gv$lock l, gv$instance i
+WHERE ( l.block!= 0 OR l.request > 0 ) AND
+l.inst_id = i.inst_id
+GROUP BY l.id1, l.id2)
+GROUP BY blocking_sid
+ORDER BY num_blocked DESC)
+WHERE num_blocked != 0
+AND blocking_sid != '0';
+
+
+col blocking_status for a150;
+select i.INSTANCE_NAME|| '--' || s1.username || '@' || s1.machine
+ || ' ( SID=' || s1.sid || ' ) is blocking '
+ ||    i.INSTANCE_NAME || '--' || s2.username || '@' || s2.machine
+ || ' ( SID=' || s2.sid || ' ) ' AS blocking_status,
+ l1.CTIME TIME_Sec,
+ l1.CTIME/60 TIME_Min
+ from gv$lock l1, gv$session s1, gv$lock l2, gv$session s2,gv$instance i
+ where s1.sid=l1.sid and s2.sid=l2.sid
+ and l1.BLOCK=1 and l2.request > 0
+ and l1.id1 = l2.id1
+ and l2.id2 = l2.id2 ;
+
+
+
+col blocking_status for a150;
+select i.INSTANCE_NAME|| '--' || s1.username || '@' || s1.machine ||' - ' || s1.action ||' - '|| s1.module
+ || ' ( SID=' || s1.sid || ' ) is blocking '
+ ||    i.INSTANCE_NAME || '--' || s2.username || '@' || s2.machine ||' - '|| s1.action ||' - '|| s1.module
+ || ' ( SID=' || s2.sid || ' ) ' AS blocking_status,
+ s1.seconds_in_wait seconds_in_wait,
+ s1.seconds_in_wait/60 minutes_in_wait
+ from gv$lock l1, gv$session s1, gv$lock l2, gv$session s2,gv$instance I
+ where s1.sid=l1.sid and s2.sid=l2.sid
+ and l1.BLOCK=1 and l2.request > 0
+ and l1.id1 = l2.id1
+ and l2.id2 = l2.id2;
+
+
+
+
+SELECT ooha.order_number, gs.client_identifier, gs.SID, gs.*--, ooha.header_id, gs.*
+      FROM gv$lock gl, gv$session gs, apps.oe_order_headers_all ooha 
+     WHERE gl.inst_id = gs.inst_id
+       AND gl.SID = gs.SID
+--       AND gl.TYPE = 'UL'
+--       AND gs.client_identifier = 'KXU'
+       AND gl.id1 = MOD( ooha.header_id, 4503204840 )
+       AND ooha.order_number = 762907755   ;
+ 
+
+
+
+
+
 set line 200
-col CPU_TOTAL for a30
-with AASSTAT as (
-           select
-                 decode(n.wait_class,'User I/O','User I/O',
-                                     'Commit','Commit',
-                                     'Wait')                               CLASS,
-                 sum(round(m.time_waited/m.INTSIZE_CSEC,3))                AAS
-           from  v$waitclassmetric_history  m,
-                 v$system_wait_class n
-           where m.wait_class_id=n.wait_class_id
-             and n.wait_class != 'Idle' and END_TIME > sysdate - (300/(24*60*60))
-           group by  decode(n.wait_class,'User I/O','User I/O', 'Commit','Commit', 'Wait')
-          union
-             select 'CPU_ORA_CONSUMED'                                     CLASS,
-                    round(value/100,3)                                     AAS
-             from v$sysmetric_history
-             where metric_name='CPU Usage Per Sec'
-             and END_TIME > sysdate - (300/(24*60*60))
-               and group_id=2
-          union
-            select 'CPU_OS'                                                CLASS ,
-                    round((prcnt.busy*parameter.cpu_count)/100,3)          AAS
-            from
-              ( select value busy from v$sysmetric_history where metric_name='Host CPU Utilization (%)' and group_id=2 and END_TIME > sysdate - (300/(24*60*60)) ) prcnt,
-              ( select value cpu_count from v$parameter where name='cpu_count' )  parameter
-          union
-             select
-               'CPU_ORA_DEMAND'                                            CLASS,
-               nvl(round( sum(decode(session_state,'ON CPU',1,0))/60,2),0) AAS
-             from v$active_session_history ash
-             where SAMPLE_TIME > sysdate - (300/(24*60*60))
-)
-select
-       ( decode(sign(CPU_OS-CPU_ORA_CONSUMED), -1, 0, (CPU_OS - CPU_ORA_CONSUMED )) +
-       CPU_ORA_CONSUMED +
-        decode(sign(CPU_ORA_DEMAND-CPU_ORA_CONSUMED), -1, 0, (CPU_ORA_DEMAND - CPU_ORA_CONSUMED ))) || ' Should be less than '|| ( select value cpu_count from v$parameter where name='cpu_count' )  "CPU_TOTAL",
-       decode(sign(CPU_OS-CPU_ORA_CONSUMED), -1, 0, (CPU_OS - CPU_ORA_CONSUMED )) CPU_OS,
-       CPU_ORA_CONSUMED CPU_ORA,
-       decode(sign(CPU_ORA_DEMAND-CPU_ORA_CONSUMED), -1, 0, (CPU_ORA_DEMAND - CPU_ORA_CONSUMED )) CPU_ORA_WAIT,
-       COMMIT,
-       user_READ_IO,
-       WAIT
-from (
-select
-       sum(decode(CLASS,'CPU_ORA_CONSUMED',AAS,0)) CPU_ORA_CONSUMED,
-       sum(decode(CLASS,'CPU_ORA_DEMAND'  ,AAS,0)) CPU_ORA_DEMAND,
-       sum(decode(CLASS,'CPU_OS'          ,AAS,0)) CPU_OS,
-       sum(decode(CLASS,'Commit'          ,AAS,0)) COMMIT,
-       sum(decode(CLASS,'User I/O'        ,AAS,0)) user_READ_IO,
-       sum(decode(CLASS,'Wait'            ,AAS,0)) WAIT
-from AASSTAT)
+col sql_text format a100
+select a.inst_id,a.sid, a.serial#, b.sql_text from gv$session a,gv$sqlarea b where
+a.sql_address=b.address and a.sid=103;
+
+31253      36721
+
+
+6426      47114
+
+SQL> alter system kill session '103,11209,@1' immediate;
+
+
+================================
+ IRIS Kill Blocking Sessions Automation
+================================
+
+SELECT *
+    FROM
+      (SELECT gvh.inst_id br_in,
+        gvh.SID br_sid,
+        gvs.serial# br_ser,
+        gvs.client_identifier Blocker_username,
+        gvs.osuser,
+        gvs.audsid br_ses,
+        gvs.sql_id Blocker_SQL_ID,
+        gvs.action br_action,
+        gvs.machine br_mach,
+        gvs.program br_program,
+        gvs.status br_stat,
+        gvs.module br_module,
+        blocked.SID bd_sid,
+        blocked_ses.serial# bd_ser,
+        blocked_ses.sql_id Blocked_SQL_ID,
+        blocked_ses.audsid bd_ses,
+        blocked_ses.action bd_action,
+        blocked_ses.machine bd_mach,
+        blocked_ses.program bd_program,
+        blocked_ses.status bd_stat,
+        blocked_ses.module bd_module,
+        (SELECT email_address
+        FROM apps.fnd_user
+        WHERE user_name = SUBSTR (gvs.action, INSTR (gvs.action, ':', 1, 1) + 1, INSTR (gvs.action, ':', 1, 2) - INSTR (gvs.action, ':', 1, 1) - 1)
+        ) blkr_email,
+      (SELECT email_address
+      FROM apps.fnd_user
+      WHERE user_name = SUBSTR (blocked_ses.action, INSTR (blocked_ses.action, ':', 1, 1) + 1, INSTR (blocked_ses.action, ':', 1, 2) - INSTR (blocked_ses.action, ':', 1, 1) - 1)
+      ) blkd_email,
+      sysdate,
+      (GVS.LAST_CALL_ET         / 60) BLOCKER_TIME_IN_MIN,
+      (BLOCKED_SES.LAST_CALL_ET / 60) Blocked_Time_in_Min,
+      COUNT (gvw.sid) OVER (PARTITION BY gvh.sid) Waiting_Session_Count
+      -- SUBSTR (gvs.action, INSTR (gvs.action, ':', 1, 1) + 1, INSTR (gvs.action, ':', 1, 2) - INSTR (gvs.action, ':', 1, 1) - 1) Blocker_username
+    FROM gv$lock gvh,
+      gv$lock gvw,
+      gv$session gvs,
+      gv$lock blocked,
+      gv$session blocked_ses
+    WHERE (gvh.id1, gvh.id2) IN
+      (SELECT id1, id2 FROM gv$lock a WHERE request = 0
+      INTERSECT
+      SELECT id1, id2 FROM gv$lock WHERE lmode = 0
+      )
+    AND gvh.id1            = gvw.id1
+    AND gvh.id2            = gvw.id2
+    AND gvh.request        = 0
+    AND gvw.lmode          = 0
+    AND gvh.SID            = gvs.SID
+    AND gvh.inst_id        = gvs.inst_id
+    AND gvh.id1            = blocked.id1(+)
+    AND gvh.id2            = blocked.id2(+)
+    AND blocked.request(+) > 0
+    AND blocked.SID        = blocked_ses.SID(+)
+    AND blocked.inst_id    = blocked_ses.inst_id(+)
+    AND gvs.status         ='INACTIVE'
+      )
+    WHERE NVL(BLOCKER_TIME_IN_MIN,0) > p_blocking_time
+    AND Waiting_Session_Count       >= NVL(p_block_session_count,1)
+                 AND (   (UPPER (NVL (Blocker_username, 'X')) <> p_exempted_user
+                              AND p_exempted_user IS NOT NULL)
+                      OR (    UPPER (NVL (Blocker_username, 'X')) NOT IN
+                                  (SELECT flv.Lookup_code
+                                     FROM fnd_lookup_values flv
+                                    WHERE     flv.lookup_type =
+                                              'XXIRIS_SKIP_BLOCK_SESSION_USER'
+                                          AND flv.ENABLED_FLAG = 'Y'
+                                          AND SYSDATE BETWEEN NVL (
+                                                                  flv.start_date_active,
+                                                                  SYSDATE)
+                                                          AND NVL (
+                                                                  flv.end_date_active,
+                                                                  SYSDATE + 1))
+                          AND p_exempted_user IS NULL))
+        ORDER BY br_in, br_sid, br_in;
+
+
+
+------------------------------------------------------------------------------------------------------------
+
+
+SELECT
+   lr.sid blocker_sid,
+   ld.sid blocked_sid,
+   lr.type, -- Type will typically be TM, TX, UL. Otherwise it is system type.
+   lt.name,
+   lr.id1, -- The value contained in these varies. For TM ID1 contains the object_id, for TX it is the Rollback entry
+   lr.id2, -- The value contained in these varies. For TX it is the Transaction entry.
+   decode(lr.lmode, 
+          0,'none(0)',
+          1,'null(NULL)(1)',
+          2,'row-S(SS)(2)',
+          3,'row-S(SX)(3)',
+          4,'Share(S)(4)',
+          5,'S/Row-X(SSX)(5)',
+          6,'exclusive(X)(6)',
+          LTRIM(TO_CHAR(lr.lmode,'990'))) lock_hold_mode,
+   decode(lr.request,
+          0,'none(0)',
+          1,'null(NULL)(1)',
+          2,'row-S(SS)(2)',
+          3,'row-S(SX)(3)',
+          4,'Share(S)(4)',
+          5,'S/Row-X(SSX)(5)',
+          6,'exclusive(X)(6)',
+          LTRIM(TO_CHAR(lr.request,'990'))) lock_request_mode,
+   lr.ctime time_blocker_held,
+   ld.ctime time_blocked_waiting
+FROM v$lock lr, 
+     v$lock ld, 
+     v$lock_type lt 
+WHERE lt.type (+) = lr.type
+AND ld.id1 = lr.id1 -- rollback entries match
+AND ld.id2 = lr.id2 -- transaction entries match
+AND lr.block = 1 -- blocker
+AND ld.block = 0 -- blocked
+ORDER BY lr.ctime DESC;
+
+
+
+Select blocking_session, sid, serial#, wait_class,seconds_in_wait From v$session where blocking_session is not NULL order by seconds_in_wait;
+
+
+
+find what exactly session is doing 
+
+
+col "SID/SERIAL" format a15
+col username format a25
+col osuser format a15
+col program format a50
+set line 200
+select  distinct s.sid || ',' || s.serial# "SID/SERIAL"
+,       s.machine
+,       s.username
+,       s.osuser
+,       s.status
+,       p.spid "OS PID"
+,       s.program
+,	  s.inst_id
+from    gv$session s
+,       gv$process p
+Where   s.paddr = p.addr and s.sid in ('97')
+-- and s.PROGRAM like 'sqlplus%'
+order   by s.inst_id
 /
 
-col WAIT_CLASS for a15
-select n.wait_class, sum(round(m.time_waited/m.INTSIZE_CSEC,3)) "AvgActvSec in last 5 mins"
-from   v$waitclassmetric_history  m,
-       v$system_wait_class n
-where m.wait_class_id=n.wait_class_id
-and n.wait_class != 'Idle'
-and END_TIME > sysdate - (300/(24*60*60)) group by n.wait_class;
+col "SID/SERIAL" format a15
+col username format a25
+col osuser format a15
+col program format a50
+set line 200
+select  distinct s.sid || ',' || s.serial# "SID/SERIAL"
+,       s.machine
+,       s.username
+,       s.osuser
+,       s.status
+,       p.spid "OS PID"
+,       s.program
+,	  s.inst_id
+from    gv$session s
+,       gv$process p
+Where   s.paddr = p.addr and  s.status='INACTIVE'
+order   by s.inst_id
+/
+
+INACTIVE
 
 
-Select a.event, a.total_waits, a.time_waited, a.average_wait
-From v$system_event a, v$event_name b, v$system_wait_class c
-Where a.event_id=b.event_id
-And b.wait_class#=c.wait_class#
-And c.wait_class = '&Enter_Wait_Class'
-order by average_wait desc;
-
-
-
-col Rank for a12
-SELECT *
-FROM (SELECT RANK () OVER
-(PARTITION BY "Snap Day" ORDER BY "Buffer Gets" + "Disk Reads" DESC) AS "Rank", i1.*
-FROM (SELECT TO_CHAR (hs.begin_interval_time, 'MM/DD/YY' ) "Snap Day",
-SUM (shs.executions_delta) "Execs",
-SUM (shs.buffer_gets_delta) "Buffer Gets",
-SUM (shs.disk_reads_delta) "Disk Reads",
-ROUND ( (SUM (shs.buffer_gets_delta)) / SUM (shs.executions_delta), 1 ) "Gets/Exec",
-ROUND ( (SUM (shs.cpu_time_delta) / 1000000) / SUM (shs.executions_delta), 1 ) "CPU/Exec(S)",
-ROUND ( (SUM (shs.iowait_delta) / 1000000) / SUM (shs.executions_delta), 1 ) "IO/Exec(S)",
-shs.sql_id "Sql id",
-REPLACE (CAST (DBMS_LOB.SUBSTR (sht.sql_text, 50) AS VARCHAR (50) ), CHR (10), '' ) "Sql"
-FROM dba_hist_sqlstat shs INNER JOIN dba_hist_sqltext sht
-ON (sht.sql_id = shs.sql_id)
-INNER JOIN dba_hist_snapshot hs
-ON (shs.snap_id = hs.snap_id)
-HAVING SUM (shs.executions_delta) > 0
-GROUP BY shs.sql_id, TO_CHAR (hs.begin_interval_time, 'MM/DD/YY'),
-CAST (DBMS_LOB.SUBSTR (sht.sql_text, 50) AS VARCHAR (50) )
-ORDER BY "Snap Day" DESC) i1
-ORDER BY "Snap Day" DESC)
-WHERE "Rank" <= 5 AND "Snap Day" = TO_CHAR (SYSDATE, 'MM/DD/YY');
-
-
-
-set pagesize 0
-set long 100000
-select dbms_metadata.get_ddl( 'USER', 'UHG_001253075' ) from dual
-UNION ALL
-select dbms_metadata.get_granted_ddl( 'SYSTEM_GRANT', 'UHG_001253075' ) from dual
-UNION ALL
-select dbms_metadata.get_granted_ddl( 'OBJECT_GRANT', 'UHG_001253075' ) from dual
-UNION ALL
-select dbms_metadata.get_granted_ddl( 'ROLE_GRANT', 'UHG_001253075' ) from dual;
-
-unset -f $(env | grep -oP "^BASH_FUNC_\K([^%]*)")
-
-cd /migration_shared/afststapp/ebs-consolidate/forms/10.1.2.3.0/32922089 && opatch apply -silent -ocmrf /migration_shared/afststapp/ebs-consolidate/ocm.rsp
-cd /migration_shared/afststapp/ebs-consolidate/forms/10.1.2.3.0/25342269 && opatch apply -silent -ocmrf /migration_shared/afststapp/ebs-consolidate/ocm.rsp
-cd /migration_shared/afststapp/ebs-consolidate/forms/10.1.2.3.0/27491934 && opatch apply -silent -ocmrf /migration_shared/afststapp/ebs-consolidate/ocm.rsp
+col "SID/SERIAL" format a15
+col username format a25
+col osuser format a15
+col program format a50
+set line 200
+select  distinct s.sid || ',' || s.serial# "SID/SERIAL"
+,       s.machine
+,       s.username
+,       s.osuser
+,       s.status
+,       p.spid "OS PID"
+,       s.program
+,	  s.inst_id
+from    gv$session s
+,       gv$process p
+Where   s.paddr = p.addr
+and s.sid='8468'
+-- and  s.machine like '%apsrp06361.uhc.com%'
+order   by s.inst_id
+/
 
 
 
-cd $AU_TOP/resource
-for i in `ls XX*.pll`
-do echo Compiling Form $i
-frmcmp_batch.sh userid=apps/SdYsApTso3 batch=no module=$i module_type=LIBRARY compile_all=yes window_state=minimize
-done
+set line 200
+col sql_text format a100
+select a.inst_id,a.sid, a.serial#, b.sql_text from gv$session a,gv$sqlarea b where
+a.sql_address=b.address and a.sid=103;
+
+31253      36721
 
 
+6426      47114
 
-export FORMS_PATH=$FORMS_PATH:$AU_TOP/forms/US
-frmcmp_batch.sh module=$AU_TOP/forms/US/ASTRCALL.fmb userid=apps/hkv#Hl#27#S module_type=FORM output_file=$AST_TOP/forms/US/ASTRCALL.fmx compile_all=special
+SQL> alter system kill session '97,49063,@2' immediate;
+
+System altered.
+
+SQL> 
+
+set echo off
+ 
+set linesize 150
+set heading on
+set lines 1000
+column blocker format a11;
+column blockee format a10;
+column sid format 99999;
+ 
+select a.inst_id,
+(select username from gv$session s where s.inst_id=a.inst_id and s.sid=a.sid) blocker,
+a.sid,
+(select module from gv$session s where s.inst_id=a.inst_id and s.sid=a.sid) blocker_module ,
+' is blocking ' "IS BLOCKING",
+b.inst_id,
+(select username from gv$session s where s.inst_id=b.inst_id and s.sid=b.sid) blockee,
+b.sid ,
+(select module from gv$session s where s.inst_id=b.inst_id and s.sid=b.sid) blockee_module
+from gv$lock a, gv$lock b
+where
+-- Modified script
+a.block <>0 and
+--b.request > 0
+and a.id1 = b.id1
+and a.id2 = b.id2
+order by 1, 2
+/
+
+--and a.sid in ('8468')
+a.id1 = b.id1
 
 
-cd $AU_TOP/forms/US/
-for i in `ls XX*.fmb`
-do echo Compiling Form $i
-frmcmp_batch.sh userid=apps/APSTSO1PASS batch=no module=$i module_type=FORM compile_all=yes window_state=minimize
-done
-
-cd $AU_TOP/forms/US/
-for i in `ls XX*.fmb`
-do echo Compiling Form $i
-frmcmp_batch.sh userid=apps/SdYsApTso3 batch=no module=$i module_type=FORM output_file=$XXIRIS_TOP/forms/US/$i.fmx compile_all=yes window_state=minimize
-Done
+select c.owner,c.object_name,c.object_type,b.sid,b.serial#,b.status,b.osuser,b.client_identifier,b.machine
+from gv$locked_object a ,
+gv$session b,
+dba_objects c
+where b.sid =a.session_id
+and a.object_id =c.object_id
+and upper(c.object_name) in ('xxiris_id_conv_queues_qtab');
 
 
-j=”${i//.fmb}”
-cd $AU_TOP/forms/US
-frmcmp_batch userid=apps/XXXX module=$i output_file=$AR_TOP/forms/US/$j.fmx module_type=form batch=no compile_all=special >>$LOGFILE
+xxiris_id_conv_queues_qtab
 
 
-unset -f $(env | grep -oP "^BASH_FUNC_\K([^%]*)")
+select c.owner,c.object_name,c.object_type,b.sid,b.serial#,b.status,b.osuser,b.client_identifier,b.machine
+from gv$locked_object a ,
+gv$session b,
+dba_objects c
+where b.sid =a.session_id
+and a.object_id =c.object_id
+and upper(c.object_name) like '%FND_WF%';
 
-Validate Objects 
-Source DB As SYSDBA
-	
- Create table source_obj as
-select * from dba_objects
-where  owner not in ('SYS','SYSTEM','DBSNMP','SYSMAN','OUTLN','MDSYS','ORDSYS','EXFSYS','DMSYS','WMSYS','CTXSYS','ANONYMOUS','XDB','ORDPLUGINS','OLAPSYS','PUBLIC');
+fnd_wf_analyzer_pkg
 
-	expdp  \"/ as sysdba\" directory=metadir logfile=dp_exp_t1.log dumpfile=dp_t1.dmp tables=source_obj
-Target DB 	
-
-Create table target_obj as
-select * from dba_objects
-where  owner not in ('SYS','SYSTEM','DBSNMP','SYSMAN','OUTLN','MDSYS','ORDSYS','EXFSYS','DMSYS','WMSYS','CTXSYS','ANONYMOUS','XDB','ORDPLUGINS','OLAPSYS','PUBLIC');
+xxiris_idps_files
 
 
-	impdp \"/ as sysdba\" directory=metadir dumpfile=dp_t1.dmp  logfile=dp_imp_t1.log
-Target DB 	
-	
-	select * from source_obj where (object_name) NOT IN ( select object_name from target_obj) and object_name not like 'SYS_%';
