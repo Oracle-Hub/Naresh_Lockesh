@@ -1,380 +1,145 @@
-To find where it's currently, because It run in the background, nobody knows where it's, so check from v$longops.
----------------------------------------------------------------------------------------------------------------------------------------------------------
-
-SELECT SID, SERIAL#, OPNAME, TARGET, SOFAR, TOTALWORK, UNITS,
-TO_CHAR(START_TIME,'DD/MON/YYYY HH24:MI:SS') START_TIME,
-TO_CHAR(LAST_UPDATE_TIME,'DD/MON/YYYY HH24:MI:SS') LAST_UPDATE_TIME,
-TIME_REMAINING/60 AS "MTS REMANING", ELAPSED_SECONDS, MESSAGE, USERNAME
-FROM gV$SESSION_LONGOPS
---WHERE TIME_REMAINING != 0
---where sid=42034
-order by last_update_time desc;
-
-SELECT SID, SERIAL#,SOFAR blocks_processed, TOTALWORK total_work, 
-TOTALWORK-SOFAR Total_work_left,TO_CHAR(START_TIME,'DD/MON/YYYY HH24:MI:SS') START_TIME,
-round((ELAPSED_SECONDS/60),0) Elapsed_minutes,
-substr(message,1,100) Message, username, round(sofar/totalwork*100,2) || '%' "Completed", time_remaining/60 
-FROM gV$SESSION_LONGOPS where totalwork-sofar > 0
---and username='APPS'
-and message like '%AUD%'
-order by start_time desc;
+set line 200
+col "Tablespace" for a30
+col "Used MB" for 99,999,999
+col "Free MB" for 99,999,999
+col "Total MB" for 99,999,999
+col "Block Size" for 9,999,999
+set pagesize 100
+select
+df.tablespace_name "Tablespace",block_size "Block Size",(df.totalspace - fs.freespace) "Used MB",
+fs.freespace "Free MB",df.totalspace "Total MB",round(100 * (fs.freespace / df.totalspace)) "Pct. Free"
+From dba_tablespaces ts,(select tablespace_name,round(sum(bytes) / 1048576) TotalSpace from dba_data_files
+group by tablespace_name) df,(select tablespace_name,round(sum(bytes) / 1048576) FreeSpace from dba_free_space group by tablespace_name) fs where ts.tablespace_name = fs.tablespace_name and
+df.tablespace_name = fs.tablespace_name(+) order by "Pct. Free";
 
 
-
-
-
-set heading off feedback off lines 800 pages 5000 trimspool on trimout on
-prompt Creating AWR Report rxeprr1_awrrpt_1_11_12PM_6NOV19.html
-prompt
-set termout off
-spool AWRRPT_RXEPRR1_1800_1830_cst.html
-select output from table(dbms_workload_repository.awr_report_html(67995579,1,239409,239411,0));
-spool off
-
-
-
-SELECT blocking_sid, num_blocked
-FROM ( SELECT blocking_sid, SUM(num_blocked) num_blocked
-FROM ( SELECT l.id1, l.id2,
-MAX(DECODE(l.block, 1, i.instance_name||'-'||l.sid,
-2, i.instance_name||'-'||l.sid, 0 )) blocking_sid,
-SUM(DECODE(l.request, 0, 0, 1 )) num_blocked
-FROM gv$lock l, gv$instance i
-WHERE ( l.block!= 0 OR l.request > 0 ) AND
-l.inst_id = i.inst_id
-GROUP BY l.id1, l.id2)
-GROUP BY blocking_sid
-ORDER BY num_blocked DESC)
-WHERE num_blocked != 0
-AND blocking_sid != '0';
-
-
-col blocking_status for a150;
-select i.INSTANCE_NAME|| '--' || s1.username || '@' || s1.machine
- || ' ( SID=' || s1.sid || ' ) is blocking '
- ||    i.INSTANCE_NAME || '--' || s2.username || '@' || s2.machine
- || ' ( SID=' || s2.sid || ' ) ' AS blocking_status,
- l1.CTIME TIME_Sec,
- l1.CTIME/60 TIME_Min
- from gv$lock l1, gv$session s1, gv$lock l2, gv$session s2,gv$instance i
- where s1.sid=l1.sid and s2.sid=l2.sid
- and l1.BLOCK=1 and l2.request > 0
- and l1.id1 = l2.id1
- and l2.id2 = l2.id2 ;
-
-
-
-col blocking_status for a150;
-select i.INSTANCE_NAME|| '--' || s1.username || '@' || s1.machine ||' - ' || s1.action ||' - '|| s1.module
- || ' ( SID=' || s1.sid || ' ) is blocking '
- ||    i.INSTANCE_NAME || '--' || s2.username || '@' || s2.machine ||' - '|| s1.action ||' - '|| s1.module
- || ' ( SID=' || s2.sid || ' ) ' AS blocking_status,
- s1.seconds_in_wait seconds_in_wait,
- s1.seconds_in_wait/60 minutes_in_wait
- from gv$lock l1, gv$session s1, gv$lock l2, gv$session s2,gv$instance I
- where s1.sid=l1.sid and s2.sid=l2.sid
- and l1.BLOCK=1 and l2.request > 0
- and l1.id1 = l2.id1
- and l2.id2 = l2.id2;
-
-
-
-
-SELECT ooha.order_number, gs.client_identifier, gs.SID, gs.*--, ooha.header_id, gs.*
-      FROM gv$lock gl, gv$session gs, apps.oe_order_headers_all ooha 
-     WHERE gl.inst_id = gs.inst_id
-       AND gl.SID = gs.SID
---       AND gl.TYPE = 'UL'
---       AND gs.client_identifier = 'KXU'
-       AND gl.id1 = MOD( ooha.header_id, 4503204840 )
-       AND ooha.order_number = 762907755   ;
- 
-
-
-
+XXIRIS_TS_TX_DATA                   8,192  10,666,013     485,347  11,151,360          4
+APPS_TS_TX_IDX                      8,192  12,638,966     688,394  13,327,360          5
+APPS_TS_TX_DATA                     8,192  15,109,058     762,942  15,872,000          5
+XXIRIS_TS_STG_DATA                  8,192   9,077,512     477,432   9,554,944          5
 
 
 set line 200
-col sql_text format a100
-select a.inst_id,a.sid, a.serial#, b.sql_text from gv$session a,gv$sqlarea b where
-a.sql_address=b.address and a.sid=103;
-
-31253      36721
-
-
-6426      47114
-
-SQL> alter system kill session '103,11209,@1' immediate;
-
-
-================================
- IRIS Kill Blocking Sessions Automation
-================================
-
-SELECT *
-    FROM
-      (SELECT gvh.inst_id br_in,
-        gvh.SID br_sid,
-        gvs.serial# br_ser,
-        gvs.client_identifier Blocker_username,
-        gvs.osuser,
-        gvs.audsid br_ses,
-        gvs.sql_id Blocker_SQL_ID,
-        gvs.action br_action,
-        gvs.machine br_mach,
-        gvs.program br_program,
-        gvs.status br_stat,
-        gvs.module br_module,
-        blocked.SID bd_sid,
-        blocked_ses.serial# bd_ser,
-        blocked_ses.sql_id Blocked_SQL_ID,
-        blocked_ses.audsid bd_ses,
-        blocked_ses.action bd_action,
-        blocked_ses.machine bd_mach,
-        blocked_ses.program bd_program,
-        blocked_ses.status bd_stat,
-        blocked_ses.module bd_module,
-        (SELECT email_address
-        FROM apps.fnd_user
-        WHERE user_name = SUBSTR (gvs.action, INSTR (gvs.action, ':', 1, 1) + 1, INSTR (gvs.action, ':', 1, 2) - INSTR (gvs.action, ':', 1, 1) - 1)
-        ) blkr_email,
-      (SELECT email_address
-      FROM apps.fnd_user
-      WHERE user_name = SUBSTR (blocked_ses.action, INSTR (blocked_ses.action, ':', 1, 1) + 1, INSTR (blocked_ses.action, ':', 1, 2) - INSTR (blocked_ses.action, ':', 1, 1) - 1)
-      ) blkd_email,
-      sysdate,
-      (GVS.LAST_CALL_ET         / 60) BLOCKER_TIME_IN_MIN,
-      (BLOCKED_SES.LAST_CALL_ET / 60) Blocked_Time_in_Min,
-      COUNT (gvw.sid) OVER (PARTITION BY gvh.sid) Waiting_Session_Count
-      -- SUBSTR (gvs.action, INSTR (gvs.action, ':', 1, 1) + 1, INSTR (gvs.action, ':', 1, 2) - INSTR (gvs.action, ':', 1, 1) - 1) Blocker_username
-    FROM gv$lock gvh,
-      gv$lock gvw,
-      gv$session gvs,
-      gv$lock blocked,
-      gv$session blocked_ses
-    WHERE (gvh.id1, gvh.id2) IN
-      (SELECT id1, id2 FROM gv$lock a WHERE request = 0
-      INTERSECT
-      SELECT id1, id2 FROM gv$lock WHERE lmode = 0
-      )
-    AND gvh.id1            = gvw.id1
-    AND gvh.id2            = gvw.id2
-    AND gvh.request        = 0
-    AND gvw.lmode          = 0
-    AND gvh.SID            = gvs.SID
-    AND gvh.inst_id        = gvs.inst_id
-    AND gvh.id1            = blocked.id1(+)
-    AND gvh.id2            = blocked.id2(+)
-    AND blocked.request(+) > 0
-    AND blocked.SID        = blocked_ses.SID(+)
-    AND blocked.inst_id    = blocked_ses.inst_id(+)
-    AND gvs.status         ='INACTIVE'
-      )
-    WHERE NVL(BLOCKER_TIME_IN_MIN,0) > p_blocking_time
-    AND Waiting_Session_Count       >= NVL(p_block_session_count,1)
-                 AND (   (UPPER (NVL (Blocker_username, 'X')) <> p_exempted_user
-                              AND p_exempted_user IS NOT NULL)
-                      OR (    UPPER (NVL (Blocker_username, 'X')) NOT IN
-                                  (SELECT flv.Lookup_code
-                                     FROM fnd_lookup_values flv
-                                    WHERE     flv.lookup_type =
-                                              'XXIRIS_SKIP_BLOCK_SESSION_USER'
-                                          AND flv.ENABLED_FLAG = 'Y'
-                                          AND SYSDATE BETWEEN NVL (
-                                                                  flv.start_date_active,
-                                                                  SYSDATE)
-                                                          AND NVL (
-                                                                  flv.end_date_active,
-                                                                  SYSDATE + 1))
-                          AND p_exempted_user IS NULL))
-        ORDER BY br_in, br_sid, br_in;
+col "Tablespace" for a30
+col "Used MB" for 99,999,999
+col "Free MB" for 99,999,999
+col "Total MB" for 99,999,999
+col "Block Size" for 9,999,999
+set pagesize 100
+select
+df.tablespace_name "Tablespace",block_size "Block Size",(df.totalspace - fs.freespace) "Used MB",
+fs.freespace "Free MB",df.totalspace "Total MB",round(100 * (fs.freespace / df.totalspace)) "Pct. Free"
+From dba_tablespaces ts,(select tablespace_name,round(sum(bytes) / 1048576) TotalSpace from dba_data_files
+group by tablespace_name) df,(select tablespace_name,round(sum(bytes) / 1048576) FreeSpace from dba_free_space group by tablespace_name) fs where ts.tablespace_name = fs.tablespace_name and
+df.tablespace_name = fs.tablespace_name(+)
+and df.tablespace_name like 'APPS_TS_TX_DATA';
 
 
 
-------------------------------------------------------------------------------------------------------------
-
-
-SELECT
-   lr.sid blocker_sid,
-   ld.sid blocked_sid,
-   lr.type, -- Type will typically be TM, TX, UL. Otherwise it is system type.
-   lt.name,
-   lr.id1, -- The value contained in these varies. For TM ID1 contains the object_id, for TX it is the Rollback entry
-   lr.id2, -- The value contained in these varies. For TX it is the Transaction entry.
-   decode(lr.lmode, 
-          0,'none(0)',
-          1,'null(NULL)(1)',
-          2,'row-S(SS)(2)',
-          3,'row-S(SX)(3)',
-          4,'Share(S)(4)',
-          5,'S/Row-X(SSX)(5)',
-          6,'exclusive(X)(6)',
-          LTRIM(TO_CHAR(lr.lmode,'990'))) lock_hold_mode,
-   decode(lr.request,
-          0,'none(0)',
-          1,'null(NULL)(1)',
-          2,'row-S(SS)(2)',
-          3,'row-S(SX)(3)',
-          4,'Share(S)(4)',
-          5,'S/Row-X(SSX)(5)',
-          6,'exclusive(X)(6)',
-          LTRIM(TO_CHAR(lr.request,'990'))) lock_request_mode,
-   lr.ctime time_blocker_held,
-   ld.ctime time_blocked_waiting
-FROM v$lock lr, 
-     v$lock ld, 
-     v$lock_type lt 
-WHERE lt.type (+) = lr.type
-AND ld.id1 = lr.id1 -- rollback entries match
-AND ld.id2 = lr.id2 -- transaction entries match
-AND lr.block = 1 -- blocker
-AND ld.block = 0 -- blocked
-ORDER BY lr.ctime DESC;
-
-
-
-Select blocking_session, sid, serial#, wait_class,seconds_in_wait From v$session where blocking_session is not NULL order by seconds_in_wait;
-
-
-
-find what exactly session is doing 
-
-
-col "SID/SERIAL" format a15
-col username format a25
-col osuser format a15
-col program format a50
-set line 200
-select  distinct s.sid || ',' || s.serial# "SID/SERIAL"
-,       s.machine
-,       s.username
-,       s.osuser
-,       s.status
-,       p.spid "OS PID"
-,       s.program
-,	  s.inst_id
-from    gv$session s
-,       gv$process p
-Where   s.paddr = p.addr and s.sid in ('97')
--- and s.PROGRAM like 'sqlplus%'
-order   by s.inst_id
+select tablespace_name,file_name,blocks/1024/1024*8 TOTAL_SIZE_GB,maxblocks/1024/1024*8 MAX_SIZE_GB,autoextenSIBLE from dba_data_files where tablespace_name='&TSNAME'
 /
 
-col "SID/SERIAL" format a15
-col username format a25
-col osuser format a15
-col program format a50
-set line 200
-select  distinct s.sid || ',' || s.serial# "SID/SERIAL"
-,       s.machine
-,       s.username
-,       s.osuser
-,       s.status
-,       p.spid "OS PID"
-,       s.program
-,	  s.inst_id
-from    gv$session s
-,       gv$process p
-Where   s.paddr = p.addr and  s.status='INACTIVE'
-order   by s.inst_id
-/
 
-INACTIVE
+select a.FILE#,a.FILENAME,a.TSNAME,b.creation_time from DBA_HIST_DATAFILE a,V$datafile b where  a.FILE#=b.FILE#  order by b.creation_time;
 
 
-col "SID/SERIAL" format a15
-col username format a25
-col osuser format a15
-col program format a50
-set line 200
-select  distinct s.sid || ',' || s.serial# "SID/SERIAL"
-,       s.machine
-,       s.username
-,       s.osuser
-,       s.status
-,       p.spid "OS PID"
-,       s.program
-,	  s.inst_id
-from    gv$session s
-,       gv$process p
-Where   s.paddr = p.addr
-and s.sid='8468'
--- and  s.machine like '%apsrp06361.uhc.com%'
-order   by s.inst_id
+
+SELECT b.tsname tablespace_name
+, MAX(b.used_size_gb) cur_used_size_mb
+, round(AVG(inc_used_size_mb),2)avg_increas_mb
+FROM (
+  SELECT a.days, a.tsname, used_size_mb
+  , used_size_mb - LAG (used_size_mb,1)  OVER ( PARTITION BY a.tsname ORDER BY a.tsname,a.days) inc_used_size_mb
+  FROM (
+      SELECT TO_CHAR(sp.begin_interval_time,'MM-DD-YYYY') days
+       ,ts.tsname
+       ,MAX(round((tsu.tablespace_usedsize* dt.block_size )/(1024*1024*1024),2)) used_size_gb
+      FROM DBA_HIST_TBSPC_SPACE_USAGE tsu, DBA_HIST_TABLESPACE_STAT ts
+       ,DBA_HIST_SNAPSHOT sp, DBA_TABLESPACES dt
+      WHERE tsu.tablespace_id= ts.ts# AND tsu.snap_id = sp.snap_id
+       AND ts.tsname = dt.tablespace_name  AND sp.begin_interval_time > sysdate-7
+      GROUP BY TO_CHAR(sp.begin_interval_time,'MM-DD-YYYY'), ts.tsname
+      ORDER BY ts.tsname, days
+  ) A
+) b GROUP BY b.tsname ORDER BY b.tsname
 /
 
 
 
-set line 200
-col sql_text format a100
-select a.inst_id,a.sid, a.serial#, b.sql_text from gv$session a,gv$sqlarea b where
-a.sql_address=b.address and a.sid=103;
-
-31253      36721
 
 
-6426      47114
-
-SQL> alter system kill session '97,49063,@2' immediate;
-
-System altered.
-
-SQL> 
-
-set echo off
- 
-set linesize 150
-set heading on
-set lines 1000
-column blocker format a11;
-column blockee format a10;
-column sid format 99999;
- 
-select a.inst_id,
-(select username from gv$session s where s.inst_id=a.inst_id and s.sid=a.sid) blocker,
-a.sid,
-(select module from gv$session s where s.inst_id=a.inst_id and s.sid=a.sid) blocker_module ,
-' is blocking ' "IS BLOCKING",
-b.inst_id,
-(select username from gv$session s where s.inst_id=b.inst_id and s.sid=b.sid) blockee,
-b.sid ,
-(select module from gv$session s where s.inst_id=b.inst_id and s.sid=b.sid) blockee_module
-from gv$lock a, gv$lock b
-where
--- Modified script
-a.block <>0 and
---b.request > 0
-and a.id1 = b.id1
-and a.id2 = b.id2
-order by 1, 2
-/
-
---and a.sid in ('8468')
-a.id1 = b.id1
 
 
-select c.owner,c.object_name,c.object_type,b.sid,b.serial#,b.status,b.osuser,b.client_identifier,b.machine
-from gv$locked_object a ,
-gv$session b,
-dba_objects c
-where b.sid =a.session_id
-and a.object_id =c.object_id
-and upper(c.object_name) in ('xxiris_id_conv_queues_qtab');
 
 
-xxiris_id_conv_queues_qtab
 
 
-select c.owner,c.object_name,c.object_type,b.sid,b.serial#,b.status,b.osuser,b.client_identifier,b.machine
-from gv$locked_object a ,
-gv$session b,
-dba_objects c
-where b.sid =a.session_id
-and a.object_id =c.object_id
-and upper(c.object_name) like '%FND_WF%';
 
-fnd_wf_analyzer_pkg
 
-xxiris_idps_files
+
+
+SELECT d.status "Status", d.tablespace_name "Name", d.contents "Type", d.extent_management
+  "ExtManag",
+  TO_CHAR(NVL(a.bytes / 1024 / 1024 /1024, 0),'99,999,990.900') "Size (G)", TO_CHAR(NVL(t.bytes,
+  0)/1024/1024/1024,'99999,999.999') ||'/'||TO_CHAR(NVL(a.bytes/1024/1024/1024, 0),'99999,999.999') "Used (GB)",
+  TO_CHAR(NVL(t.bytes / a.bytes * 100, 0), '990.00') "Used %"
+  FROM sys.dba_tablespaces d, (select tablespace_name, sum(bytes) bytes from dba_temp_files group by
+  tablespace_name) a,
+ (select tablespace_name, sum(bytes_cached) bytes from
+  v$temp_extent_pool group by tablespace_name) t
+  WHERE d.tablespace_name = a.tablespace_name(+) AND d.tablespace_name = t.tablespace_name(+)
+  AND d.extent_management like 'LOCAL' AND d.contents like 'TEMPORARY';
+
+
+
+
+
+
+— Listing of temp segments.—
+
+SELECT A.tablespace_name tablespace, D.mb_total,
+SUM (A.used_blocks * D.block_size) / 1024 / 1024 mb_used,
+D.mb_total – SUM (A.used_blocks * D.block_size) / 1024 / 1024 mb_free
+FROM v$sort_segment A,
+(
+SELECT B.name, C.block_size, SUM (C.bytes) / 1024 / 1024 mb_total
+FROM v$tablespace B, v$tempfile C
+WHERE B.ts#= C.ts#
+GROUP BY B.name, C.block_size
+) D
+WHERE A.tablespace_name = D.name
+GROUP by A.tablespace_name, D.mb_total;
+
+— Temp segment usage per session.—
+
+SELECT S.sid || ‘,’ || S.serial# sid_serial, S.username, S.osuser, P.spid, S.module,
+P.program, SUM (T.blocks) * TBS.block_size / 1024 / 1024 mb_used, T.tablespace,
+COUNT(*) statements
+FROM v$sort_usage T, v$session S, dba_tablespaces TBS, v$process P
+WHERE T.session_addr = S.saddr
+AND S.paddr = P.addr
+AND T.tablespace = TBS.tablespace_name
+GROUP BY S.sid, S.serial#, S.username, S.osuser, P.spid, S.module,
+P.program, TBS.block_size, T.tablespace
+ORDER BY sid_serial;
+
+
+select username, tablespace ,sql_id from v$tempseg_usage;
+
+(or)
+
+select S.sid,S.username,U.tablespace,S.sql_hash_value ||'/'|| U.sqlhash hash_value,
+U.segtype,u.contents,U.blocks  from v$session S, v$tempseg_usage U where
+S.saddr=U.session_addr order by U.blocks;
+
+(or)
+
+select S.sid, S.username "DB_USER", P.username "OS_USER" ,
+P.spid,U.tablespace,S.sql_hash_value ||'/'|| U.sqlhash "HASH_VALUE ", U.segtype,U.contents,U.blocks
+from v$process p , v$session S ,v$tempseg_usage U
+where S.saddr=U.session_addr and p.addr=s.paddr
+order by U.blocks;
+
+
 
 
