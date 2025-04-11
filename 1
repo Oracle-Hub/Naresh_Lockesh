@@ -1,3 +1,62 @@
+ALTER TABLE AR.RA_CUSTOMER_TRX_ALL ADD SUPPLEMENTAL LOG DATA (ALL) COLUMNS;
+ALTER TABLE AR.RA_CUSTOMER_TRX_LINES_ALL ADD SUPPLEMENTAL LOG DATA (ALL) COLUMNS;
+ALTER TABLE AR.RA_CUST_TRX_TYPES_ALL  ADD SUPPLEMENTAL LOG DATA (ALL) COLUMNS;
+ALTER TABLE AR.AR_PAYMENT_SCHEDULES_ALL  ADD SUPPLEMENTAL LOG DATA (ALL) COLUMNS;
+
+ALTER TABLE XXIRIS.XXIRIS_AR_CUST_ALLERGIES ADD SUPPLEMENTAL LOG DATA (ALL) COLUMNS;
+
+
+ALTER TABLE AR.HZ_LOCATIONS  ADD SUPPLEMENTAL LOG DATA (ALL) COLUMNS;
+ALTER TABLE BOM.BOM_CALENDAR_EXCEPTIONS  ADD SUPPLEMENTAL LOG DATA (ALL) COLUMNS;
+
+
+ALTER TABLE XXIRIS.XXIRIS_PATIENT_EMAIL_COMM_PREF ADD SUPPLEMENTAL LOG DATA (ALL) COLUMNS;
+
+
+ar_hz_contact_points           
+ar_hz_cust_accounts            
+ar_hz_parties                   
+ar_hz_party_site_uses           
+ar_hz_party_sites         
+ar_hz_person_profiles           
+xxiris_xxiris_ar_plan_assignment
+ar_hz_locations
+
+
+col OWNER for a20
+col TABLE_NAME for a30
+set line 200
+select  OWNER,TABLE_NAME,LOG_GROUP_TYPE from DBA_LOG_GROUPS where lower(TABLE_NAME) in ('XXIRIS_ALERT_NF_MASTER_AUDIT')
+
+
+
+col OWNER for a20
+col TABLE_NAME for a30
+set line 200
+select  OWNER,TABLE_NAME,LOG_GROUP_TYPE from DBA_LOG_GROUPS where TABLE_NAME in ('HZ_CONTACT_POINTS');
+
+col OWNER for a20
+col TABLE_NAME for a30
+set line 200
+select  OWNER,TABLE_NAME,LOG_GROUP_TYPE from DBA_LOG_GROUPS where TABLE_NAME in
+('XXIRIS_OM_ORDER_LINES_ALL');
+
+
+col owner for a15
+col object_name for a30
+col OBJECT_TYPE for a30
+set line 200
+select owner,object_name,object_type from dba_objects where object_name in upper('hz_contact_points') and OBJECT_TYPE='TABLE';
+
+OWNER                          OBJECT_NAME                    OBJECT_TYPE
+------------------------------ ------------------------------ -----------------------
+AR                             HZ_CONTACT_POINTS              TABLE
+
+
+
+
+
+
 set line 200
 col "Tablespace" for a30
 col "Used MB" for 99,999,999
