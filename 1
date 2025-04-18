@@ -1,3 +1,5 @@
+SELECT 'alter system kill session ' || '''' || SID || ',' || SERIAL# || ''' immediate ;' FROM gv$session WHERE PROGRAM like 'OMS';
+
 set line 200
 col "Tablespace" for a30
 col "Used MB" for 99,999,999
