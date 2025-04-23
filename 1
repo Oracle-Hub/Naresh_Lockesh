@@ -1,3 +1,82 @@
+
+
+SQL> select username,account_status from dba_users where username like 'NEXUS_SHARE';
+
+USERNAME                       ACCOUNT_STATUS
+------------------------------ --------------------------------
+NEXUS_SHARE                    OPEN
+
+select sum(bytes/1024/1024),owner from dba_segments where OWNER='NEXUS_SHARE' group by owner;
+
+
+select count(*),owner,status from dba_objects where OWNER='NEXUS_SHARE' group by owner,status;
+
+
+col OWNER for a30
+set line 200
+
+select count(*),owner,object_type from dba_objects where OWNER='NEXUS_SHARE' group by owner,status,object_type;
+
+ COUNT(*) OWNER                          OBJECT_TYPE
+---------- ------------------------------ -----------------------
+        17 NEXUS_SHARE                    TABLE
+        17 NEXUS_SHARE                    SEQUENCE
+        15 NEXUS_SHARE                    INDEX
+
+
+
+col DIRECTORY_PATH for a40
+col DIRECTORY_NAME for a30
+set line 200
+select OWNER,DIRECTORY_NAME,DIRECTORY_PATH from dba_directories where DIRECTORY_NAME='EXPIMPDIR';
+
+OWNER                          DIRECTORY_NAME                 DIRECTORY_PATH
+------------------------------ ------------------------------ ----------------------------------------
+SYS                            EXPIMPDIR                      /u01/ext/expdp
+
+
+
+Export : 
+expdp directory=EXPIMPDIR dumpfile=NEXUS_SHARE_4m_NexusInt_17Sep.dmp logfile=NEXUS_SHARE_4m_NexusInt_17Sep.log schemas=NEXUS_SHARE
+
+set echo off
+set feedback off
+set verify off
+col CUST_DB_ID format     a20  justify c heading 'Cust_DB_ID'
+col report_name format    a20  justify c heading 'REPORT_NAME'
+col report_date format    a20  justify c heading 'REPORT_DATE'
+set linesize 80
+set pagesize 40
+column total format a15
+column free format a15
+column allocated format a15
+column name heading 'Database|Name'
+select name  from v$database;
+prompt
+prompt Database Size in GBytes
+
+select
+        TO_CHAR(a.data_size + b.temp_size + c.redo_size + d.controlfile_size) total,
+        TO_CHAR(e.free) free,
+        TO_CHAR((a.data_size + b.temp_size + c.redo_size + d.controlfile_size) - e.free) allocated
+from
+       (select round(sum(bytes) / 1024 / 1024 / 1024,2) data_size from dba_data_files ) a,
+           (select round(nvl(sum(bytes), 0) / 1024 / 1024 / 1024,2) temp_size
+          from dba_temp_files) b,
+                  (select round(sum(bytes) / 1024 / 1024 / 1024,2) redo_size from sys.v_$log) c,
+                  (select round(sum(BLOCK_SIZE * FILE_SIZE_BLKS) / 1024 / 1024 / 1024,2) controlfile_size
+          from v$controlfile) d,
+       (select round(sum(bytes/1024/1024/1024),2) free
+        from dba_free_space) e
+/
+
+
+
+
+
+
+
+
 SELECT ARCH.THREAD# "Thread", ARCH.SEQUENCE# "Last Sequence Received",
 APPL.SEQUENCE# "Last Sequence Applied", (ARCH.SEQUENCE# - APPL.SEQUENCE#) "Difference"
 FROM
