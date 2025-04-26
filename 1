@@ -5,7 +5,7 @@ SELECT (SPACE_LIMIT/1024/1024/1024)SPACE_LIMIT_gb,
 ROUND((SPACE_USED-SPACE_RECLAIMABLE)/SPACE_LIMIT*100,1)"PERCENT_FULL_OF_100%"
 FROM V$RECOVERY_FILE_DEST; 
 
-
+ expdp \'/as sysdba\' directory=exportp DUMPFILE=schema.dmp logfile=schema.log SCHEMAS=raju
 
 SQL> select username,account_status from dba_users where username like 'NEXUS_SHARE';
 
