@@ -1,3 +1,199 @@
+SQL> select mkeyid from enc$;
+
+MKEYID
+----------------------------------------------------------------
+AUm5dF0YR09uv8diqkedWkYAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+
+
+mkstore -wrl /u01/app/oracle/admin/rxets02/wallet -list 
+
+	     /u01/app/oracle/admin/rxest01/wallet 
+
+   ( will dispaly list keys we have )
+
+mkstore -wrl /ora/rxets06/u01/admin/rxets06/wallet -list
+
+mkstore -wrl /u01/app/oracle/admin/rxets02/wallet -list
+ 
+
+mkstore -wrl /u01/app/oracle/admin/rxedv06/wallet  -viewEntry ORACLE.SECURITY.DB.ENCRYPTION.MASTERKEY   ( to find only master key )
+
+set linesize 150
+column name format a40
+column masterkeyid_base64 format a60
+select name,utl_raw.cast_to_varchar2( utl_encode.base64_encode('01'||substr(mkeyid,1,4))) || utl_raw.cast_to_varchar2( utl_encode.base64_encode(substr(mkeyid,5,length(mkeyid)))) masterkeyid_base64 FROM (select t.name,RAWTOHEX(x.mkid) mkeyid
+from v$tablespace t, x$kcbtek x where t.con_id=3 and t.ts#=x.ts# and NAME='SYSTEM');
+
+alter session set container=RXEPRR;
+
+set linesize 150
+column name format a40
+column masterkeyid_base64 format a60
+select name,utl_raw.cast_to_varchar2( utl_encode.base64_encode('01'||substr(mkeyid,1,4))) || utl_raw.cast_to_varchar2( utl_encode.base64_encode(substr(mkeyid,5,length(mkeyid)))) masterkeyid_base64 FROM (select t.name,RAWTOHEX(x.mkid) mkeyid
+from v$tablespace t, x$kcbtek x where  t.ts#=x.ts# and NAME='SYSTEM');
+
+t.con_id=3 and
+
+
+set linesize 150
+column name format a40
+column masterkeyid_base64 format a60
+select name,utl_raw.cast_to_varchar2( utl_encode.base64_encode('01'||substr(mkeyid,1,4))) || utl_raw.cast_to_varchar2( utl_encode.base64_encode(substr(mkeyid,5,length(mkeyid)))) masterkeyid_base64 FROM (select t.name, t.con_id,RAWTOHEX(x.mkid) mkeyid 
+from v$tablespace t, x$kcbtek x where x.con_id=4 and t.ts#=x.ts# and NAME='TEMP');
+
+
+-----------------
+FOR CDC 
+--------------------------------
+
+For 12C 
+--------
+[oracle:RXETS021@st01dbadm03] /home/oracle> mkstore -wrl  /u01/app/oracle/admin/RXECDV03/wallet/tde/  -list
+Oracle Secret Store Tool : Version 12.1.0.2
+Copyright (c) 2004, 2014, Oracle and/or its affiliates. All rights reserved.
+
+Enter wallet password:   
+Oracle Secret Store entries: 
+ORACLE.SECURITY.DB.ENCRYPTION.AUVYnuOUw0+7v9xuZqUQdiAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+
+-------------------------------------------------------------
+
+[oracle:RXETS021@st01dbadm03] /u01/app/oracle/admin/rxets02/wallet> mkstore -wrl ewallet.p12 -viewEntry  ORACLE.SECURITY.DB.ENCRYPTION.AasqFluBNk+tv/W+JLRUkigAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+Oracle Secret Store Tool : Version 12.1.0.2
+Copyright (c) 2004, 2014, Oracle and/or its affiliates. All rights reserved.
+
+Enter wallet password:   
+ORACLE.SECURITY.DB.ENCRYPTION.AUVYnuOUw0+7v9xuZqUQdiAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA = AEMAASAAgBt0u3CE4V3ATTbNkTi1NW9k/JoBt0B43W8xkjfTZz0DEADliOsPksVU1jZCd+w3uE6CBQcAeHkBAwssDw==
+[oracle:RXETS021@st01dbadm03] /u01/app/oracle/admin/rxets02/wallet> 
+
+
+CDC team needs the highlighted values that were decrypted.. 
+---------------------------------------------------------------------------------------------
+
+For 19c process
+---------------------
+
+
+
+SQL> select WRL_TYPE,WRL_PARAMETER,STATUS,WALLET_TYPE from v$encryption_wallet;
+
+WRL_TYPE             WRL_PARAMETER                            STATUS                         WALLET_TYPE
+-------------------- ---------------------------------------- ------------------------------ --------------------
+ASM                  +DATA01/RXECPRR/wallet/tde/              OPEN                           AUTOLOGIN
+ASM                                                           OPEN                           AUTOLOGIN
+ASM                                                           OPEN                           AUTOLOGIN
+
+
+3)	execute below queries to get all the info from ASM to Local (Method #1 from Doc ID 2193264.1)
+
+administer key management create keystore '/u01/app/oracle/admin/RXECPRR_E/wallet/for_cdc' identified by "g0lfisgr8";
+
+administer key management merge keystore '+DATA01/RXECPRR/wallet/tde/' identified by "g0lfisgr8" into existing keystore '/u01/app/oracle/admin/RXECPRR_E/wallet/for_cdc' identified by "g0lfisgr8" with backup;
+
+
+
+4)	Validate activation/creation time for the keystore
+col CREATOR_DBNAME for a15
+col KEY_ID for a60
+col CREATION_TIME for a50
+col ACTIVATION_TIME  for a50
+select CREATOR_DBNAME,KEY_ID,CREATION_TIME,ACTIVATION_TIME from v$encryption_keys;
+
+CREATOR_DBNAME       KEY_ID                                                  CREATION_TIME                            ACTIVATION_TIME
+-------------------- ------------------------------------------------------- ---------------------------------------- --------------------------------------------------
+                     AQc5Bj7mtU+nv2veRteJ9w4AAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                     AdTFJzK/Ak+1v8zKcmlsIqcAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+RXEPRR_E             AfkvAtezXk/XvwkwbgG8Hj4AAAAAAAAAAAAAAAAAAAAAAAAAAAAA    09-JUL-22 12.00.34.069788 AM -07:00      09-JUL-22 12.00.34.069791 AM -07:00
+RXEPRR_E             AfImJRJa/E/qv+jtTv1l9SoAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    09-JUL-22 12.17.00.682677 AM -07:00      09-JUL-22 12.17.00.682683 AM -07:00
+RXECPRR              ASFwihDoo094vzUM67CYbKQAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    02-JUL-22 08.09.32.622883 AM +00:00      02-JUL-22 08.09.32.622892 AM +00:00
+
+
+
+
+5)	Run below command to retrieve the encryption key from OS Level file.
+
+mkstore -wrl /u01/app/oracle/admin/RXECPRR_E/wallet/for_cdc/ewallet.p12 -list
+
+
+Enter wallet password:   
+Oracle Secret Store entries: 
+ORACLE.SECURITY.DB.ENCRYPTION.AdTFJzK/Ak+1v8zKcmlsIqcAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+ORACLE.SECURITY.DB.ENCRYPTION.AfImJRJa/E/qv+jtTv1l9SoAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+ORACLE.SECURITY.DB.ENCRYPTION.AfkvAtezXk/XvwkwbgG8Hj4AAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+ORACLE.SECURITY.DB.ENCRYPTION.AQc5Bj7mtU+nv2veRteJ9w4AAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+ORACLE.SECURITY.DB.ENCRYPTION.ASFwihDoo094vzUM67CYbKQAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+[oracle:RXECPRR1@sp02dbadm01] /u01/app/oracle/admin/RXECPRR_E/wallet/for_cdc] 
+
+6)	Now from the encryption key retrieve the value using below command and share it with the CDC Team:
+
+mkstore -wrl /u01/app/oracle/admin/RXECPRR_E/wallet/for_cdc/ewallet.p12 -viewEntry ORACLE.SECURITY.DB.ENCRYPTION.AfImJRJa/E/qv+jtTv1l9SoAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+
+
+
+New Method
+===============================
+
+
+Once decrypt is completed.
+
+1)	Close the wallet using source wallet password
+
+SQL>  ADMINISTER KEY MANAGEMENT SET KEYSTORE CLOSE IDENTIFIED BY "g0lfisgr8";
+
+keystore altered.
+
+2)	Now create new wallet file, you need to delete/move the keys move the key to different name before executing below command.
+
+SQL> ADMINISTER KEY MANAGEMENT CREATE KEYSTORE '/u01/app/oracle/admin/rxest01/wallet' IDENTIFIED BY "pwd";
+
+keystore altered.
+
+3)	Set the hidden parameter to flush old key.
+
+	SQL> ALTER SYSTEM SET "_db_discard_lost_masterkey"=TRUE SCOPE=MEMORY; 
+
+System altered.
+
+4)	Next step is to open the key 
+
+SQL> ADMINISTER KEY MANAGEMENT SET KEYSTORE OPEN IDENTIFIED BY "pwd";
+
+keystore altered.
+
+Make sure, wallet location Is pointing to correct location from gv$encryption_wallet
+SQL> select * from gv$encryption_wallet;
+
+   INST_ID WRL_TYPE
+---------- --------------------
+WRL_PARAMETER
+--------------------------------------------------------------------------------
+STATUS                         WALLET_TYPE          WALLET_OR FULLY_BAC
+------------------------------ -------------------- --------- ---------
+    CON_ID
+----------
+         1 FILE
+/tmp/wallet
+OPEN_NO_MASTER_KEY             PASSWORD             SINGLE    UNDEFINED
+         0
+
+5)	Now Set the master key using below command 
+
+SQL> ADMINISTER KEY MANAGEMENT SET KEY IDENTIFIED BY "pwd" WITH BACKUP;
+
+keystore altered.
+
+
+6)	Now open the key using below command 
+
+Database opened.
+
+7)	Final step is to encrypt it back...
+
+
+orapki wallet create -wallet /u01/app/oracle/admin/rxest01/wallet  -auto_login
+
+
+
 SELECT (SPACE_LIMIT/1024/1024/1024)SPACE_LIMIT_gb,
 (SPACE_USED/1024/1024/1024)SPACE_USED_gb,
 (SPACE_RECLAIMABLE/1024/1024/1024)SPACE_RECLAIMABLE_gb,
