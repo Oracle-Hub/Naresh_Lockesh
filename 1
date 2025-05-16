@@ -5,18 +5,18 @@ MKEYID
 AUm5dF0YR09uv8diqkedWkYAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 
 
-mkstore -wrl /u01/app/oracle/admin/rxets02/wallet -list 
+mkstore -wrl /tmp/wallet -list 
 
-	     /u01/app/oracle/admin/rxest01/wallet 
+	     /tmp/wallet
 
    ( will dispaly list keys we have )
 
 mkstore -wrl /ora/rxets06/u01/admin/rxets06/wallet -list
 
-mkstore -wrl /u01/app/oracle/admin/rxets02/wallet -list
+mkstore -wrl /tmp/wallet -list
  
 
-mkstore -wrl /u01/app/oracle/admin/rxedv06/wallet  -viewEntry ORACLE.SECURITY.DB.ENCRYPTION.MASTERKEY   ( to find only master key )
+mkstore -wrl /tmp/wallet  -viewEntry ORACLE.SECURITY.DB.ENCRYPTION.MASTERKEY   ( to find only master key )
 
 set linesize 150
 column name format a40
@@ -58,13 +58,13 @@ ORACLE.SECURITY.DB.ENCRYPTION.AUVYnuOUw0+7v9xuZqUQdiAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 
 -------------------------------------------------------------
 
-[oracle:RXETS021@st01dbadm03] /u01/app/oracle/admin/rxets02/wallet> mkstore -wrl ewallet.p12 -viewEntry  ORACLE.SECURITY.DB.ENCRYPTION.AasqFluBNk+tv/W+JLRUkigAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+[oracle:RXETS021@st01dbadm03] /tmp/wallet> mkstore -wrl ewallet.p12 -viewEntry  ORACLE.SECURITY.DB.ENCRYPTION.AasqFluBNk+tv/W+JLRUkigAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 Oracle Secret Store Tool : Version 12.1.0.2
 Copyright (c) 2004, 2014, Oracle and/or its affiliates. All rights reserved.
 
 Enter wallet password:   
 ORACLE.SECURITY.DB.ENCRYPTION.AUVYnuOUw0+7v9xuZqUQdiAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA = AEMAASAAgBt0u3CE4V3ATTbNkTi1NW9k/JoBt0B43W8xkjfTZz0DEADliOsPksVU1jZCd+w3uE6CBQcAeHkBAwssDw==
-[oracle:RXETS021@st01dbadm03] /u01/app/oracle/admin/rxets02/wallet> 
+[oracle:RXETS021@st01dbadm03] /tmp/wallet> 
 
 
 CDC team needs the highlighted values that were decrypted.. 
@@ -190,7 +190,7 @@ Database opened.
 7)	Final step is to encrypt it back...
 
 
-orapki wallet create -wallet /u01/app/oracle/admin/rxest01/wallet  -auto_login
+orapki wallet create -wallet /tmp/wallet -auto_login
 
 
 
