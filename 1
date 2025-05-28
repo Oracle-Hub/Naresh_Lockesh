@@ -1,3 +1,12 @@
+set linesize 200
+Set pagesize 200
+SELECT * FROM TABLE (DBMS_XPLAN.DISPLAY_CURSOR ('a7vrbykhp3pdn'));
+
+set linesize 200
+Set pagesize 200
+SELECT * FROM TABLE (DBMS_XPLAN.DISPLAY_CURSOR('a7vrbykhp3pdn',null,'ADVANCED ALLSTATS LAST'));
+
+
 SQL> select mkeyid from enc$;
 
 MKEYID
