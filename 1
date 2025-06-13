@@ -2,7 +2,7 @@ To search with RESET word and get 20 lines before and after
 
 perl -ne 'push @buffer, $_; shift @buffer if @buffer > 20; if (/RESET/) { print @buffer; print $_; for (1..20) { $_ = <>; print if $_ } }' alert_JSP_cur.log 
 
-
+grep -E '^(2025-05-22|...|2025-05-22)' alert_JSP_cur.log > list.log
 
 perl -ne 'print "$prev2\n$prev1\n$_\n" if /MRP0: Background Media Recovery/; $prev2=$prev1; $prev1=$_' alert_VPR.log
 
