@@ -1,3 +1,6 @@
+https://connor-mcdonald.com/2022/02/16/intrans-grabs-a-little-more-space/
+
+
 To search with RESET word and get 20 lines before and after
 
 perl -ne 'push @buffer, $_; shift @buffer if @buffer > 20; if (/RESET/) { print @buffer; print $_; for (1..20) { $_ = <>; print if $_ } }' alert_JSP_cur.log 
